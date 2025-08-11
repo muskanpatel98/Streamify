@@ -59,14 +59,14 @@ const Comments = ({ videoId }: any) => {
     loadComments();
   }, [videoId]);
 
-  useEffect(() => {
-    axiosInstance
-      .get("/api/translate/languages")
-      .then((res) => {
-        setLanguages(res.data);
-      })
-      .catch((err) => console.error("Error fetching languages:", err));
-  }, []);
+  // useEffect(() => {
+  //   axiosInstance
+  //     .get("/api/translate")
+  //     .then((res) => {
+  //       setLanguages(res.data);
+  //     })
+  //     .catch((err) => console.error("Error fetching languages:", err));
+  // }, []);
 
   const loadComments = async () => {
     try {
@@ -172,15 +172,7 @@ const Comments = ({ videoId }: any) => {
     try {
       const res = await axiosInstance.post(`/api/comment/${id}/translate`, {
         targetLang,
-        //   method: 'POST',
-        // headers: { 'Content-Type': 'application/json' },
-        // body: JSON.stringify({ targetLang }),
       });
-      // if (!res.ok) {
-      //     const errorText = await res.text();  // Read HTML error
-      //     throw new Error(`Server Error ${res.status}: ${errorText}`);
-      //   }
-      //  const data = await res.json();
 
       setTranslatedComments((prev) => ({
         ...prev,
@@ -190,6 +182,18 @@ const Comments = ({ videoId }: any) => {
       // alert(`Translated: ${res.data.translated}`);
     } catch (err) {
       console.error("Translation failed:", err);
+    }
+  };
+
+  const handleTranslateToggle = async (id: string, targetLang: string) => {
+    if (translatedComments[id]) {
+      setTranslatedComments((prev) => {
+        const copy = { ...prev };
+        delete copy[id];
+        return copy;
+      });
+    } else {
+      await handleTranslate(id, targetLang);
     }
   };
 
@@ -318,7 +322,9 @@ const Comments = ({ videoId }: any) => {
                   </div>
                 ) : (
                   <>
-                    <p className="text-sm">{comment.commentbody}</p>
+                    <p className="text-sm">
+                      {translatedComments[comment._id] || comment.commentbody}
+                    </p>
                     {comment.userid === user?._id && (
                       <div className="flex gap-2 mt-2 text-sm text-gray-500">
                         <Button
@@ -358,19 +364,63 @@ const Comments = ({ videoId }: any) => {
                               [comment._id]: e.target.value,
                             }))
                           }
-                        ></select>
+                        >
+                          <option value="">Select Language</option>
+                          <option value="en">English</option>
+                          <option value="hi">Hindi</option>
+                          <option value="fr">French</option>
+                          <option value="es">Spanish</option>
+                          <option value="de">German</option>
+                          <option value="zh-CN">Chinese (Simplified)</option>
+                          <option value="zh-TW">Chinese (Traditional)</option>
+                          <option value="ar">Arabic</option>
+                          <option value="ru">Russian</option>
+                          <option value="ja">Japanese</option>
+                          <option value="ko">Korean</option>
+                          <option value="pt">Portuguese</option>
+                          <option value="it">Italian</option>
+                          <option value="nl">Dutch</option>
+                          <option value="sv">Swedish</option>
+                          <option value="tr">Turkish</option>
+                          <option value="pl">Polish</option>
+                          <option value="id">Indonesian</option>
+                          <option value="ta">Tamil</option>
+                          <option value="te">Telugu</option>
+                          <option value="bn">Bengali</option>
+                          <option value="ur">Urdu</option>
+                          <option value="gu">Gujarati</option>
+                          <option value="mr">Marathi</option>
+                          <option value="fa">Persian</option>
+                          <option value="th">Thai</option>
+                          <option value="vi">Vietnamese</option>
+                          <option value="he">Hebrew</option>
+                          <option value="cs">Czech</option>
+                          <option value="ro">Romanian</option>
+                          <option value="hu">Hungarian</option>
+                          <option value="el">Greek</option>
+                          <option value="da">Danish</option>
+                          <option value="fi">Finnish</option>
+                          <option value="no">Norwegian</option>
+                          <option value="sk">Slovak</option>
+                          <option value="bg">Bulgarian</option>
+                        </select>
                         <button
                           className="text-sm text-gray-600 mt-1 hover:underline"
-                          onClick={() => handleTranslate(comment._id, "en")}
+                          onClick={() =>
+                            handleTranslateToggle(
+                              comment._id,
+                              selectedLanguages[comment._id] || "en"
+                            )
+                          }
                         >
                           Translate
                         </button>
 
-                        {translatedComments[comment._id] && (
+                        {/* {translatedComments[comment._id] && (
                           <p className="text-sm italic text-gray-600">
                             Translated: {translatedComments[comment._id]}
                           </p>
-                        )}
+                        )} */}
 
                         <button onClick={() => handleEdit(comment)}>
                           Edit

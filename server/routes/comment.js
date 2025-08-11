@@ -7,7 +7,6 @@ import {
   likecomment,
   dislikecomment,
   translateComment,
-  getLanguages
 } from "../controllers/comment.js";
 
 
