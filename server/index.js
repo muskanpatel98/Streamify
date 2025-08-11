@@ -1,4 +1,5 @@
 import express from "express"
+
 import cors from "cors"
 import dotenv from "dotenv"
 import bodyParser from "body-parser"
@@ -27,7 +28,7 @@ app.use("/video",videoroutes);
 app.use("/like", likeroutes);
 app.use("/watch", watchlaterroutes);
 app.use("/history", historyrroutes);
-app.use("/comment", commentroutes);
+app.use("/api/comment", commentroutes);
 const PORT = process.env.PORT || 5000
 
 app.listen(PORT , ()=> {

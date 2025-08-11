@@ -10,22 +10,24 @@ interface VideoPlayerProps {
   };
 }
 
-export default function Videoplayer({ video }: VideoPlayerProps ) {
+export default function Videoplayer({ video }: VideoPlayerProps) {
   const videos = "/video/vdo.mp4";
   const videoRef = useRef<HTMLVideoElement>(null);
-  // useEffect(()=>{
-  //     const videoElement = videoRef.current;
-  //     if(videoElement){
-  //         videoElement.addEventListener("play",handleplay);
-  //     }
-  // },[]);
+
   return (
     <div className="aspect-video bg-black rounded-lg overflow-hidden">
-      <video ref={videoRef} className="w-full h-full" controls poster={`/placeholder.svg?height=480&width=854`}>
-        <source src={`${process.env.BACKEND_URL}/${video.filepath}`} type="video/mp4" />
+      <video
+        ref={videoRef}
+        className="w-full h-full"
+        controls
+        poster={`/placeholder.svg?height=480&width=854`}
+      >
+        <source
+          src={`${process.env.BACKEND_URL}/${video.filepath}`}
+          type="video/mp4"
+        />
         Your browser does not support the video tag.
       </video>
     </div>
   );
-};
-
+}

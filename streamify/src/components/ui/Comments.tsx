@@ -5,11 +5,15 @@ import axiosInstance from "@/lib/axiosInstance";
 import { Avatar, AvatarFallback, AvatarImage } from "@radix-ui/react-avatar";
 import { Textarea } from "./textarea";
 import { Button } from "./button";
+import { ThumbsUp, ThumbsDown } from "lucide-react";
 
 interface Comment {
   _id: string;
   videoid: string;
   userid: string;
+  location?: string;
+  likes?: string[];
+  dislikes?: string[];
   commentbody: string;
   usercommented: string;
   commentedon: string;
@@ -21,7 +25,18 @@ const Comments = ({ videoId }: any) => {
   const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
   const [editText, setEditText] = useState("");
   const { user } = useUser();
+  const [isLiked, setIsLiked] = useState(false);
+  const [isDisliked, setIsDisliked] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [languages, setLanguages] = useState([]);
+  const [translatedComments, setTranslatedComments] = useState<
+    Record<string, string>
+  >({});
+  const [selectedLanguages, setSelectedLanguages] = useState<{
+    [key: string]: string;
+  }>({});
+
+  const specialCharRegex = /[^a-zA-Z0-9\s.,!?'"@#&():;-]/;
   const fetchedComments = [
     {
       _id: "1",
@@ -44,9 +59,18 @@ const Comments = ({ videoId }: any) => {
     loadComments();
   }, [videoId]);
 
+  useEffect(() => {
+    axiosInstance
+      .get("/api/translate/languages")
+      .then((res) => {
+        setLanguages(res.data);
+      })
+      .catch((err) => console.error("Error fetching languages:", err));
+  }, []);
+
   const loadComments = async () => {
     try {
-      const res = await axiosInstance.get(`/comment/${videoId}`);
+      const res = await axiosInstance.get(`/api/comment/${videoId}`);
       setComments(res.data);
     } catch (error) {
       console.log(error);
@@ -60,14 +84,30 @@ const Comments = ({ videoId }: any) => {
   const handleSubmitComment = async () => {
     if (!user || !newComment.trim()) return;
 
+    if (specialCharRegex.test(newComment)) {
+      alert("Special characters are not allowed in comments.");
+      return;
+    }
     setIsSubmitting(true);
     try {
-      const res = await axiosInstance.post("/comment/postcomment", {
+      let location = "Unknown";
+
+      try {
+        const locRes = await fetch("https://ipapi.co/json/");
+        const locData = await locRes.json();
+        location = `${locData.city}, ${locData.country_name}`;
+      } catch {
+        console.warn("Could not fetch location");
+      }
+
+      const res = await axiosInstance.post("/api/comment/postcomment", {
         videoid: videoId,
         userid: user._id,
         commentbody: newComment,
         usercommented: user.name,
+        location,
       });
+
       if (res.data.comment) {
         const newCommentObj: Comment = {
           _id: Date.now().toString(),
@@ -76,6 +116,7 @@ const Comments = ({ videoId }: any) => {
           commentbody: newComment,
           usercommented: user.name || "Anonymous",
           commentedon: new Date().toISOString(),
+          location,
         };
         setComments([newCommentObj, ...comments]);
       }
@@ -84,6 +125,71 @@ const Comments = ({ videoId }: any) => {
       console.error("Error adding comment:", error);
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // Like & Dislike Button
+  const handleLike = async (id: string) => {
+    try {
+      const res = await axiosInstance.post(`/api/comment/like`, {
+        commentId: id,
+        userid: user._id,
+      });
+
+      if (res.data.updatedComment) {
+        // Update comment list with the new one
+        setComments((prevComments) =>
+          prevComments.map((c) => (c._id === id ? res.data.updatedComment : c))
+        );
+      }
+      // reload updated comment
+    } catch (err) {
+      console.log("Error toggling like:", err);
+    }
+  };
+
+  const handleDislike = async (id: string) => {
+    try {
+      const res = await axiosInstance.post(`/api/comment/dislike/`, {
+        commentId: id,
+        userId: user._id,
+      });
+      if (res.data.deleted) {
+        setComments((prev) => prev.filter((c) => c._id !== id));
+      } else {
+        setComments((prev) =>
+          prev.map((c) => (c._id === id ? { ...c, ...res.data } : c))
+        );
+      }
+    } catch (err) {
+      console.log("Error toggling dislike:", err);
+    }
+  };
+
+  //Translator
+  const handleTranslate = async (id: string, targetLang: string) => {
+    if (translatedComments[id]) return;
+    try {
+      const res = await axiosInstance.post(`/api/comment/${id}/translate`, {
+        targetLang,
+        //   method: 'POST',
+        // headers: { 'Content-Type': 'application/json' },
+        // body: JSON.stringify({ targetLang }),
+      });
+      // if (!res.ok) {
+      //     const errorText = await res.text();  // Read HTML error
+      //     throw new Error(`Server Error ${res.status}: ${errorText}`);
+      //   }
+      //  const data = await res.json();
+
+      setTranslatedComments((prev) => ({
+        ...prev,
+        [id]: res.data.translated,
+      }));
+
+      // alert(`Translated: ${res.data.translated}`);
+    } catch (err) {
+      console.error("Translation failed:", err);
     }
   };
 
@@ -96,7 +202,7 @@ const Comments = ({ videoId }: any) => {
     if (!editText.trim()) return;
     try {
       const res = await axiosInstance.post(
-        `/comment/editcomment/${editingCommentId}`,
+        `/api/comment/editcomment/${editingCommentId}`,
         { commentbody: editText }
       );
       if (res.data) {
@@ -115,7 +221,9 @@ const Comments = ({ videoId }: any) => {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await axiosInstance.delete(`/comment/deletecomment/${id}`);
+      const res = await axiosInstance.delete(
+        `/api/comment/deletecomment/${id}`
+      );
       if (res.data.comment) {
         setComments((prev) => prev.filter((c) => c._id !== id));
       }
@@ -123,6 +231,7 @@ const Comments = ({ videoId }: any) => {
       console.log(error);
     }
   };
+
   return (
     <div className="space-y-6">
       <h2 className="text-xl font-semibold">{comments.length} Comments</h2>
@@ -175,8 +284,11 @@ const Comments = ({ videoId }: any) => {
                   <span className="font-medium text-sm">
                     {comment.usercommented}
                   </span>
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-gray-500 italic">
                     {formatDistanceToNow(new Date(comment.commentedon))} ago
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    {comment.location && <> • {comment.location}</>}
                   </span>
                 </div>
 
@@ -209,6 +321,57 @@ const Comments = ({ videoId }: any) => {
                     <p className="text-sm">{comment.commentbody}</p>
                     {comment.userid === user?._id && (
                       <div className="flex gap-2 mt-2 text-sm text-gray-500">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-l-full"
+                          onClick={() => handleLike(comment._id)}
+                        >
+                          <ThumbsUp
+                            className={`w-5 h-5 mr-2 ${
+                              isLiked ? "fill-black text-black" : ""
+                            }`}
+                          />
+                          {comment.likes?.length?.toLocaleString() || 0}
+                        </Button>
+
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="rounded-r-full"
+                          onClick={() => handleDislike(comment._id)}
+                        >
+                          <ThumbsDown
+                            className={`w-5 h-5 mr-2 ${
+                              isDisliked ? "fill-black text-black" : ""
+                            }`}
+                          />
+                          {comment.dislikes?.length?.toLocaleString() || 0}
+                        </Button>
+
+                        <select
+                          className="text-sm border rounded px-1 py-0.5 mr-2"
+                          value={selectedLanguages[comment._id] || "en"}
+                          onChange={(e) =>
+                            setSelectedLanguages((prev) => ({
+                              ...prev,
+                              [comment._id]: e.target.value,
+                            }))
+                          }
+                        ></select>
+                        <button
+                          className="text-sm text-gray-600 mt-1 hover:underline"
+                          onClick={() => handleTranslate(comment._id, "en")}
+                        >
+                          Translate
+                        </button>
+
+                        {translatedComments[comment._id] && (
+                          <p className="text-sm italic text-gray-600">
+                            Translated: {translatedComments[comment._id]}
+                          </p>
+                        )}
+
                         <button onClick={() => handleEdit(comment)}>
                           Edit
                         </button>
